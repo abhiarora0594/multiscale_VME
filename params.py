@@ -8,3 +8,4 @@ MATERIAL_MODEL = "Neo-Hookean"
 MU = 1.0
 LAMBDA = 1.0
 RHO = 1.0
+NSTEPS = 100

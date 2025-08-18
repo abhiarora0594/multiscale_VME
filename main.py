@@ -27,7 +27,8 @@ if __name__ == "__main__":
                                          CFL = CFL, 
                                          P_ = P_, 
                                          T_TOTAL= T_TOTAL, 
-                                         TOL = TOL)
+                                         TOL = TOL,
+                                         NSTEPS= NSTEPS)
 
     mesh.print_summary()
 
