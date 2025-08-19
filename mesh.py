@@ -38,7 +38,7 @@ class Mesh2D:
 
         # generate coarse nodes, elements, and list of coarse patches
         self.nodes = self._generate_nodes()
-        self.elements = self._generate_elements()
+        self.elements, self.boundary_elements = self._generate_elements()
         self.el_list_patch = self._generate_list_of_coarse_patches()
 
         # fine scale elements
@@ -57,7 +57,7 @@ class Mesh2D:
         
         # generate fine scale nodes, elements, and list of fine elements per coarse patch
         self.nodes_m = self._generate_fine_scale_nodes()
-        self.elements_m = self._generate_fine_scale_elements()
+        self.elements_m, self.boundary_elements_m = self._generate_fine_scale_elements()
         self.el_list_fine_scale_elems_within_each_coarse_elem = self._generate_fine_scale_elements_within_each_coarse_elem()
         
     # class member functions
@@ -72,16 +72,30 @@ class Mesh2D:
     def _generate_elements(self):
         
         elements = []
+        boundary_elements = []
 
         if self.element_type == "Q1":
 
             for i in range(self.nx):
                 for j in range(self.ny):
-                    n0 = i * self.nny + j
-                    n1 = n0 + 1
-                    n2 = n0 + self.nny
-                    n3 = n2 + 1
+                    n0 = i * self.nny + j # bottom-left
+                    n1 = n0 + 1 # top-left
+                    n2 = n0 + self.nny # bottom-right
+                    n3 = n2 + 1 # top-right
+
+                    # 2-d elements
                     elements.append([n0, n2, n3, n1])  # Q1: ccw
+
+                    # Only keep edges on boundary
+                    if j == 0:          # bottom
+                        boundary_elements.append([n0, n2])  # bottom-left -> bottom-right
+                    if i == self.nx-1:  # right
+                        boundary_elements.append([n2, n3])  # bottom-right -> top-right
+                    if j == self.ny-1:  # top
+                        boundary_elements.append([n3, n1])  # top-right -> top-left
+                    if i == 0:          # left
+                        boundary_elements.append([n1, n0])  # top-left -> bottom-left
+
 
         elif self.element_type == "Q2":
 
@@ -90,6 +104,8 @@ class Mesh2D:
                     i0 = 2 * i
                     j0 = 2 * j
                     n = lambda ii, jj: (i0 + ii) * self.nny + (j0 + jj)
+
+                    #2-d elements
                     elements.append([
                         n(0, 0),  # bottom-left
                         n(2, 0),  # bottom-right
@@ -101,7 +117,21 @@ class Mesh2D:
                         n(0, 1),  # left-mid
                         n(1, 1)  # center
                     ])
-        return np.array(elements, dtype = np.int64)
+
+                    # Bottom edge
+                    if j == 0:
+                        boundary_elements.append([n(0,0), n(1,0), n(2,0)])
+                    # Right edge
+                    if i == self.nx-1:
+                        boundary_elements.append([n(2,0), n(2,1), n(2,2)])
+                    # Top edge
+                    if j == self.ny-1:
+                        boundary_elements.append([n(2,2), n(1,2), n(0,2)])
+                    # Left edge
+                    if i == 0:
+                        boundary_elements.append([n(0,2), n(0,1), n(0,0)])
+
+        return np.array(elements, dtype = np.int64), np.array(boundary_elements, dtype = np.int64)
     
     def get_element_coordinates(self, eid):
         # print(self.elements[eid])
@@ -196,6 +226,7 @@ class Mesh2D:
     def _generate_fine_scale_elements(self):
         
         elements = []
+        boundary_elements = []
 
         if self.element_type == "Q1":
             for i in range(self.nx_f):
@@ -204,7 +235,20 @@ class Mesh2D:
                     n1 = n0 + 1
                     n2 = n0 + self.nny_f
                     n3 = n2 + 1
+
+                    #2-d elements
                     elements.append([n0, n2, n3, n1])  # Q1: ccw
+
+                    # Only keep edges on boundary
+                    if j == 0:          # bottom
+                        boundary_elements.append([n0, n2])  # bottom-left -> bottom-right
+                    if i == self.nx-1:  # right
+                        boundary_elements.append([n2, n3])  # bottom-right -> top-right
+                    if j == self.ny-1:  # top
+                        boundary_elements.append([n3, n1])  # top-right -> top-left
+                    if i == 0:          # left
+                        boundary_elements.append([n1, n0])  # top-left -> bottom-left
+                
 
         elif self.element_type == "Q2":
             for i in range(self.nx_f):
@@ -212,6 +256,8 @@ class Mesh2D:
                     i0 = 2 * i
                     j0 = 2 * j
                     n = lambda ii, jj: (i0 + ii) * self.nny_f + (j0 + jj)
+
+                    # 2-d elements
                     elements.append([
                         n(0, 0),  # bottom-left
                         n(2, 0),  # bottom-right
@@ -223,7 +269,22 @@ class Mesh2D:
                         n(0, 1),  # left-mid
                         n(1, 1)  # center
                     ])
-        return np.array(elements, dtype = np.int64)
+
+                    # Bottom edge
+                    if j == 0:
+                        boundary_elements.append([n(0,0), n(1,0), n(2,0)])
+                    # Right edge
+                    if i == self.nx-1:
+                        boundary_elements.append([n(2,0), n(2,1), n(2,2)])
+                    # Top edge
+                    if j == self.ny-1:
+                        boundary_elements.append([n(2,2), n(1,2), n(0,2)])
+                    # Left edge
+                    if i == 0:
+                        boundary_elements.append([n(0,2), n(0,1), n(0,0)])
+
+
+        return np.array(elements, dtype = np.int64), np.array(boundary_elements, dtype = np.int64)
     
     def _generate_fine_scale_elements_within_each_coarse_elem(self):
 

@@ -27,22 +27,44 @@ class Data_Manager:
         self.a_c_it = np.zeros((self.femgeomtery.dof_per_node*self.femgeomtery.mesh.nodes.shape[0],1))
 
         # fine-scale fields before a time step
-        self.u_f = np.zeros(self.femgeomtery.mesh.nodes_m.shape[0],self.femgeomtery.dof_per_node*self.femgeomtery.mesh.nodes_m.shape[1])
-        self.v_f = np.zeros(self.femgeomtery.mesh.nodes_m.shape[0],self.femgeomtery.dof_per_node*self.femgeomtery.mesh.nodes_m.shape[1])
-        self.a_f = np.zeros(self.femgeomtery.mesh.nodes_m.shape[0],self.femgeomtery.dof_per_node*self.femgeomtery.mesh.nodes_m.shape[1])
+        self.u_f = np.zeros((self.femgeomtery.mesh.nodes_m.shape[0],self.femgeomtery.dof_per_node*self.femgeomtery.mesh.nodes_m.shape[1]))
+        self.v_f = np.zeros((self.femgeomtery.mesh.nodes_m.shape[0],self.femgeomtery.dof_per_node*self.femgeomtery.mesh.nodes_m.shape[1]))
+        self.a_f = np.zeros((self.femgeomtery.mesh.nodes_m.shape[0],self.femgeomtery.dof_per_node*self.femgeomtery.mesh.nodes_m.shape[1]))
 
         # fine-scale fields after a sub-step
-        self.u_f_sub = np.zeros(self.femgeomtery.mesh.nodes_m.shape[0],self.femgeomtery.dof_per_node*self.femgeomtery.mesh.nodes_m.shape[1])
-        self.v_f_sub = np.zeros(self.femgeomtery.mesh.nodes_m.shape[0],self.femgeomtery.dof_per_node*self.femgeomtery.mesh.nodes_m.shape[1])
-        self.a_f_sub = np.zeros(self.femgeomtery.mesh.nodes_m.shape[0],self.femgeomtery.dof_per_node*self.femgeomtery.mesh.nodes_m.shape[1])
+        self.u_f_sub = np.zeros((self.femgeomtery.mesh.nodes_m.shape[0],self.femgeomtery.dof_per_node*self.femgeomtery.mesh.nodes_m.shape[1]))
+        self.v_f_sub = np.zeros((self.femgeomtery.mesh.nodes_m.shape[0],self.femgeomtery.dof_per_node*self.femgeomtery.mesh.nodes_m.shape[1]))
+        self.a_f_sub = np.zeros((self.femgeomtery.mesh.nodes_m.shape[0],self.femgeomtery.dof_per_node*self.femgeomtery.mesh.nodes_m.shape[1]))
 
         # fine-scale fields after a full step
-        self.u_f_up = np.zeros(self.femgeomtery.mesh.nodes_m.shape[0],self.femgeomtery.dof_per_node*self.femgeomtery.mesh.nodes_m.shape[1])
-        self.v_f_up = np.zeros(self.femgeomtery.mesh.nodes_m.shape[0],self.femgeomtery.dof_per_node*self.femgeomtery.mesh.nodes_m.shape[1])
-        self.a_f_up = np.zeros(self.femgeomtery.mesh.nodes_m.shape[0],self.femgeomtery.dof_per_node*self.femgeomtery.mesh.nodes_m.shape[1])
+        self.u_f_up = np.zeros((self.femgeomtery.mesh.nodes_m.shape[0],self.femgeomtery.dof_per_node*self.femgeomtery.mesh.nodes_m.shape[1]))
+        self.v_f_up = np.zeros((self.femgeomtery.mesh.nodes_m.shape[0],self.femgeomtery.dof_per_node*self.femgeomtery.mesh.nodes_m.shape[1]))
+        self.a_f_up = np.zeros((self.femgeomtery.mesh.nodes_m.shape[0],self.femgeomtery.dof_per_node*self.femgeomtery.mesh.nodes_m.shape[1]))
 
         # fine-scale acceleration fields during an iteration
-        self.a_f_it = np.zeros(self.femgeomtery.mesh.nodes_m.shape[0],self.femgeomtery.dof_per_node*self.femgeomtery.mesh.nodes_m.shape[1])
+        self.a_f_it = np.zeros((self.femgeomtery.mesh.nodes_m.shape[0],self.femgeomtery.dof_per_node*self.femgeomtery.mesh.nodes_m.shape[1]))
+
+    def error_estimate_substep(self):
+
+        max_error_coarse = np.linalg.norm(self.a_c_it - self.a_c_sub)
+        max_error_fine = -1e50
+        for unit_cell in range(self.femgeometry.mesh.nel_patch):
+            max_error_fine = max(max_error_fine, np.linalg.norm(self.a_f_it[unit_cell,:] - self.a_f_sub[unit_cell,:]))
+
+        max_error = max(max_error_coarse, max_error_fine)
+
+        return max_error
+    
+    def error_estimate_fullstep(self):
+
+        max_error_coarse = np.linalg.norm(self.a_c_it - self.a_c_up)
+        max_error_fine = -1e50
+        for unit_cell in range(self.femgeometry.mesh.nel_patch):
+            max_error_fine = max(max_error_fine, np.linalg.norm(self.a_f_it[unit_cell,:] - self.a_f_up[unit_cell,:]))
+
+        max_error = max(max_error_coarse, max_error_fine)
+    
+        return max_error
 
 class CoarseScaleSolver:
     
@@ -52,7 +74,7 @@ class CoarseScaleSolver:
         self.constitutive_law = constitutive_law
 
         # Identity tensor in a single column
-        self.Id_tensor = np.zeros((4,1))
+        self.Id_tensor = np.zeros((4,1)) #[(0,0), (0,1), (1,0), (1,1)]
         self.Id_tensor[0] = 1
         self.Id_tensor[-1] = 1
 
@@ -84,7 +106,7 @@ class CoarseScaleSolver:
 
         for unit_cell_no in range(m):
             for macro_el_no in range(n):
-                ie_macro = self.femgeomtery.mesh.el_list_patch(unit_cell_no,macro_el_no)
+                ie_macro = self.femgeomtery.mesh.el_list_patch[unit_cell_no,macro_el_no]
 
                 # coarse-scale entities per coarse-element 
                 X_c_e = self.femgeomtery.mesh.nodes[self.femgeomtery.mesh.elements[ie_macro,:],:]
@@ -96,7 +118,7 @@ class CoarseScaleSolver:
                 Me = self.elem_macroscale_mass_vector(X_c_e,X_f,macro_el_no)
 
                 # assembly
-                self.Mg[self.femgeomtery.dof_conn_coarse[ie_macro,:]] += Me
+                self.Mg[self.femgeomtery.dof_conn_coarse[ie_macro,:],0] += Me
     
 
     # acceleration update substep
@@ -111,7 +133,7 @@ class CoarseScaleSolver:
 
         for unit_cell_no in range(m):
             for macro_el_no in range(n):
-                ie_macro = self.femgeomtery.mesh.el_list_patch(unit_cell_no,macro_el_no)
+                ie_macro = self.femgeomtery.mesh.el_list_patch[unit_cell_no,macro_el_no]
                 
                 # coarse-scale entities per coarse-element 
                 u_c_e = self.data.u_c_sub[self.femgeomtery.dof_conn_coarse[ie_macro,:]]
@@ -144,7 +166,7 @@ class CoarseScaleSolver:
 
         for unit_cell_no in range(m):
             for macro_el_no in range(n):
-                ie_macro = self.femgeomtery.mesh.el_list_patch(unit_cell_no,macro_el_no)
+                ie_macro = self.femgeomtery.mesh.el_list_patch[unit_cell_no,macro_el_no]
                 
                 # coarse-scale entities per coarse-element 
                 u_c_e = self.data.u_c_up[self.femgeomtery.dof_conn_coarse[ie_macro,:]]
@@ -171,10 +193,10 @@ class CoarseScaleSolver:
         Fe_int = np.zeros((self.femgeomtery.dof_per_node*self.femgeomtery.mesh.elements.shape[1],1))
 
         # B matrix coarse scale
-        B_mat_c = np.zeros((4,self.femgeomtery.mesh.elements.shape[1]))
+        B_mat_c = np.zeros((4,self.femgeomtery.dof_conn_coarse.shape[1]))
 
         # B matrix fine scale
-        B_mat_f = np.zeros((4,self.femgeomtery.mesh.elements_m.shape[1]))
+        B_mat_f = np.zeros((4,self.femgeomtery.dof_conn_fine.shape[1]))
         
         # loop over the fine-scale elements per coarse element within a patch
         for ie_micro in self.femgeomtery.mesh.el_list_fine_scale_elems_within_each_coarse_elem[macro_el_no]:
@@ -221,7 +243,8 @@ class CoarseScaleSolver:
                 B_mat_f[2,1:2:] = dN_f_global[:,0].T # dNfi_dx
                 B_mat_f[3,1:2:] = dN_f_global[:,1].T # dNfi_dy
 
-                # Deformation Gradient Tensor in a single column
+                # Deformation Gradient Tensor in a single column  
+                # components order -- >[(0,0), (0,1), (1,0), (1,1)]
                 F_def = self.Id_tensor + np.matmul(B_mat_c,u_c_e) + np.matmul(B_mat_f,u_f_e)
 
                 # Get the First Piola Kirchhoff stress 
@@ -324,7 +347,7 @@ class FineScaleSolver:
     def get_global_mass_matrix_fine(self):
         
         # total nodal degree of freedoms for 1st unit cell
-        ndof = len(self.data.u_f.shape[1])
+        ndof = self.data.u_f.shape[1]
 
         # initializaiton
         self.Mg = np.zeros((ndof,1))
@@ -340,15 +363,16 @@ class FineScaleSolver:
 
             # element level force vector calculation
             Me = self.elem_microscale_mass_vector(X_f_e,ie_micro)
+            # print(Me.shape)
 
             # assembly
-            self.Mg[self.femgeomtery.dof_conn_fine[ie_micro,:]] += Me
+            self.Mg[self.femgeomtery.dof_conn_fine[ie_micro,:],0] += Me
 
     # acceleration update substep
     def update_fine_acceleration_substep(self):
 
         # total nodal degree of freedoms per unit cell
-        ndof = len(self.data.u_f_sub.shape[1])
+        ndof = self.data.u_f_sub.shape[1]
 
         macro_elms = self.femgeomtery.mesh.el_list_fine_scale_elems_within_each_coarse_elem.shape[0]
 
@@ -379,7 +403,7 @@ class FineScaleSolver:
                     Fe_int = self.elem_microscale_force_vector(u_c_e,a_c_e,X_c_e,u_f_e,X_f_e, ie_micro)
 
                     # assembly
-                    Fg_int[self.femgeomtery.dof_conn_fine[ie_micro,:]] += Fe_int
+                    Fg_int[self.femgeomtery.dof_conn_fine[ie_micro,:],0] += Fe_int
 
             # update the iterate value
             self.data.a_f_it[unit_cell_no,:]  = np.divide(np.multiply(-1.0,Fg_int), self.Mg)
@@ -388,7 +412,7 @@ class FineScaleSolver:
     def update_fine_acceleration_fullstep(self):
 
         # total nodal degree of freedoms per unit cell
-        ndof = len(self.data.u_f_up.shape[1])
+        ndof = self.data.u_f_up.shape[1]
 
         macro_elms = self.femgeomtery.mesh.el_list_fine_scale_elems_within_each_coarse_elem.shape[0]
 
@@ -419,7 +443,7 @@ class FineScaleSolver:
                     Fe_int = self.elem_microscale_force_vector(u_c_e,a_c_e,X_c_e,u_f_e,X_f_e, ie_micro)
 
                     # assembly
-                    Fg_int[self.femgeomtery.dof_conn_fine[ie_micro,:]] += Fe_int
+                    Fg_int[self.femgeomtery.dof_conn_fine[ie_micro,:],0] += Fe_int
 
             # update the iterate value
             self.data.a_f_it[unit_cell_no,:]  = np.divide(np.multiply(-1.0,Fg_int), self.Mg)
@@ -431,10 +455,10 @@ class FineScaleSolver:
         Fe_int = np.zeros((self.femgeomtery.dof_per_node*self.femgeomtery.mesh.elements_m.shape[1],1))
 
         # B matrix coarse scale
-        B_mat_c = np.zeros((4,self.femgeomtery.mesh.elements.shape[1]))
+        B_mat_c = np.zeros((4,self.femgeomtery.dof_conn_coarse.shape[1]))
 
         # B matrix fine scale
-        B_mat_f = np.zeros((4,self.femgeomtery.mesh.elements_m.shape[1]))
+        B_mat_f = np.zeros((4,self.femgeomtery.dof_conn_fine.shape[1]))
 
         # loop over gps
         for gp in range(self.femgeomtery.ngp):
@@ -474,6 +498,7 @@ class FineScaleSolver:
             B_mat_f[3,1:2:] = dN_f_global[:,1].T # dNfi_dy
 
             # Deformation Gradient Tensor in a single column
+            # components order -- >[(0,0), (0,1), (1,0), (1,1)]
             F_def = self.Id_tensor + np.matmul(B_mat_c,u_c_e) + np.matmul(B_mat_f,u_f_e)
 
             # Get the First Piola Kirchhoff stress 

@@ -54,7 +54,7 @@ if __name__ == "__main__":
     print(mesh.elements_m.shape)
 
     print("\nFine-scale mesh elements per coarse element within a coarse patch:")
-    print(mesh.el_list_fine_scale_elems_within_each_coarse_elem.shape)
+    print(mesh.el_list_fine_scale_elems_within_each_coarse_elem)
 
     xi, eta = 0.0, 0.0  # center of reference element
     X_c = np.array([[-2,0],[0,0],[0,2],[-2,2]])

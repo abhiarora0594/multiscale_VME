@@ -23,6 +23,12 @@ class FEMGeometry:
         # generate dof connectivity fine
         self.dof_conn_fine = self._generate_dof_connectivity_fine()
 
+        # generate dof boundary connectivity coarse
+        self.dof_bound_conn_coarse = self._generate_dof_boundary_connectivity_coarse()
+
+        # generate dof boundary connectivity fine
+        self.dof_bound_conn_fine = self._generate_dof_boundary_connectivity_fine()
+
         # no of gps for integration
         self.ngp = ngp
 
@@ -37,10 +43,10 @@ class FEMGeometry:
 
         for i in range(m):
             for j in range(n):
-                dof_conn[i][2*j] = 2*self.mesh.elements[i][j]
-                dof_conn[i][2*j+1] = 2*self.mesh.elements[i][j]+1 
+                for k in range(self.dof_per_node):
+                    dof_conn[i][self.dof_per_node*j+k] = self.dof_per_node*self.mesh.elements[i][j]+ k
         
-        return dof_conn
+        return np.array(dof_conn,dtype = np.int64)
     
     def _generate_dof_connectivity_fine(self):
 
@@ -50,10 +56,36 @@ class FEMGeometry:
 
         for i in range(m):
             for j in range(n):
-                dof_conn[i][2*j] = 2*self.mesh.elements_m[i][j]
-                dof_conn[i][2*j+1] = 2*self.mesh.elements_m[i][j]+1 
+                for k in range(self.dof_per_node):
+                    dof_conn[i][self.dof_per_node*j+k] = self.dof_per_node*self.mesh.elements_m[i][j]+ k
         
-        return dof_conn
+        return np.array(dof_conn,dtype = np.int64)
+    
+    def _generate_dof_boundary_connectivity_coarse(self):
+
+        m,n = self.mesh.boundary_elements.shape
+
+        dof_bound_conn_coarse = np.zeros((m,self.dof_per_node*n))
+
+        for i in range(m):
+            for j in range(n):
+                for k in range(self.dof_per_node):
+                    dof_bound_conn_coarse[i][self.dof_per_node*j+k] = self.dof_per_node*self.mesh.boundary_elements[i][j]+ k
+
+        return np.array(dof_bound_conn_coarse, dtype = np.int64)
+    
+    def _generate_dof_boundary_connectivity_fine(self):
+
+        m,n = self.mesh.boundary_elements.shape
+
+        dof_bound_conn_fine = np.zeros((m,self.dof_per_node*n))
+
+        for i in range(m):
+            for j in range(n):
+                for k in range(self.dof_per_node):
+                    dof_bound_conn_fine[i][self.dof_per_node*j+k] = self.dof_per_node*self.mesh.boundary_elements_m[i][j]+ k
+
+        return np.array(dof_bound_conn_fine, dtype = np.int64)
     
     def gauss_points(self):
 
@@ -71,7 +103,7 @@ class FEMGeometry:
         else:
             raise ValueError("Only implemented for 4 gauss points")
 
-        return gp_list, wt_list
+        return np.array(gp_list), np.array(wt_list)
 
 
     def get_global_shape_gradients(self, coords, xi, eta):
